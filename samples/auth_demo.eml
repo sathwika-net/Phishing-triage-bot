@@ -1,0 +1,11 @@
+Authentication-Results: mx.example.net;
+ spf=fail smtp.mailfrom=examplebank-verify.example;
+ dkim=none;
+ dmarc=fail (p=NONE) header.from=examplebank-verify.example
+Received-SPF: fail (mx.example.net: domain of examplebank-verify.example does not designate 203.0.113.9 as permitted sender) client-ip=203.0.113.9;
+From: "ExampleBank Support" <security@examplebank-verify.example>
+To: victim@example.com
+Subject: Account notice
+Date: Mon, 16 Nov 2026 09:15:00 -0700
+
+Please review your account.
