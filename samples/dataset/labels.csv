@@ -1,0 +1,10 @@
+filename,true_label,expected_level
+mal_01_bank_credentials.eml,malicious,High
+mal_02_fake_invoice.eml,malicious,High
+mal_03_password_expiry.eml,malicious,High
+leg_01_meeting.eml,legitimate,Low
+leg_02_newsletter.eml,legitimate,Low
+leg_03_vendor_report.eml,legitimate,Low
+inc_01_hr_notice.eml,inconclusive,Medium
+inc_02_parcel_notice.eml,inconclusive,Medium
+inc_03_bank_details_change.eml,inconclusive,Medium

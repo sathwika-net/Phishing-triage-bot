@@ -1,0 +1,12 @@
+Authentication-Results: mx.example.net; spf=softfail
+ smtp.mailfrom=dhl-tracking.example; dkim=none; dmarc=none
+From: "DHL Express" <notify@dhl-tracking.example>
+To: customer@example.com
+Subject: Delivery attempt failed
+Date: Tue, 17 Nov 2026 16:20:00 -0700
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Dear customer, we could not deliver your parcel. Reschedule at http://parcel-=
+reschedule.xyz/track

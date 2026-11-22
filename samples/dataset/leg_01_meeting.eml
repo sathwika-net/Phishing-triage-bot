@@ -1,0 +1,13 @@
+Authentication-Results: Authentication-Results: mx.example.net; spf=pass
+ smtp.mailfrom=company.example; dkim=pass header.d=company.example; dmarc=pass
+ header.from=company.example
+From: "Alex Chen" <alex@company.example>
+To: bob@company.example
+Subject: Agenda for Thursday
+Date: Mon, 16 Nov 2026 09:15:00 -0700
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Hi Bob, here is the agenda for Thursday's meeting. Please send me any items y=
+ou want added. Thanks, Alex

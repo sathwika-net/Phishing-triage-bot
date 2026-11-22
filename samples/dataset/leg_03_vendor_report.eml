@@ -1,0 +1,26 @@
+Authentication-Results: Authentication-Results: mx.example.net; spf=pass
+ smtp.mailfrom=vendor.example; dkim=pass header.d=vendor.example; dmarc=pass
+ header.from=vendor.example
+From: "Priya Nair" <priya@vendor.example>
+To: team@company.example
+Subject: Monthly report attached
+Date: Fri, 20 Nov 2026 14:00:00 -0700
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============4968400993968885461=="
+
+--===============4968400993968885461==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hello team, the monthly report is attached. The summary slides are also at ht=
+tps://bit.ly/monthly-slides. Regards, Priya
+
+--===============4968400993968885461==
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="report.pdf"
+MIME-Version: 1.0
+
+c3ludGhldGljIGhhcm1sZXNzIGJ5dGVz
+
+--===============4968400993968885461==--

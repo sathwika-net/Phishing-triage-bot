@@ -1,0 +1,26 @@
+Authentication-Results: Authentication-Results: mx.example.net; spf=pass
+ smtp.mailfrom=partner.example; dkim=pass header.d=partner.example; dmarc=pass
+ header.from=partner.example
+From: "Sam Lee" <sam@partner.example>
+To: accounts@company.example
+Subject: Updated payment details
+Date: Wed, 18 Nov 2026 13:10:00 -0700
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============5276073199000296926=="
+
+--===============5276073199000296926==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hi, our bank details have changed. Please use the new details in the attached=
+ file for all future payments.
+
+--===============5276073199000296926==
+Content-Type: application/zip
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="new_bank_details.zip"
+MIME-Version: 1.0
+
+c3ludGhldGljIGhhcm1sZXNzIGJ5dGVz
+
+--===============5276073199000296926==--

@@ -1,0 +1,35 @@
+Authentication-Results: mx.example.net; spf=softfail
+ smtp.mailfrom=billing-dept.example; dkim=fail header.d=billing-dept.example;
+ dmarc=fail header.from=billing-dept.example
+From: "Accounts Payable" <billing@billing-dept.example>
+To: finance@example.com
+Reply-To: payments@collect-funds.example
+Subject: Final notice: overdue invoice
+Date: Tue, 17 Nov 2026 10:30:00 -0700
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============5704844615138213561=="
+
+--===============5704844615138213561==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Your invoice is overdue. This is your final notice, respond immediately. See =
+the attached invoice.
+
+--===============5704844615138213561==
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="Invoice_2291.xlsm"
+MIME-Version: 1.0
+
+c3ludGhldGljIGhhcm1sZXNzIGJ5dGVz
+
+--===============5704844615138213561==
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="invoice_2291.pdf.exe"
+MIME-Version: 1.0
+
+c3ludGhldGljIGhhcm1sZXNzIGJ5dGVz
+
+--===============5704844615138213561==--
