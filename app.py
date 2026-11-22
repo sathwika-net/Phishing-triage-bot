@@ -172,7 +172,14 @@ def main():
     try:
         analysis = analyze_bytes(raw)
     except EmailParseError as error:
-        st.error(f"Could not analyze this file: {error}")
+
+        analysis = analyze_bytes(raw)
+    except EmailParseError as error:
+        st.error("Could not analyze this file.")
+        st.code(str(error), language=None)  # st.code, not st.error, so any text is shown literally
+        return
+    except Exception:  # last-resort guard so a hostile file never shows a stack trace
+        st.error("Unexpected error while analyzing this file. It may be malformed.")
         return
     except Exception:  # last-resort guard so a hostile file never shows a stack trace
         st.error("Unexpected error while analyzing this file. It may be malformed.")

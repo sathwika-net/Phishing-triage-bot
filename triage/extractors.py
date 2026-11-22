@@ -19,7 +19,9 @@ MAX_ITEMS = 500
 
 URL_PATTERN = re.compile(r"https?://[^\s<>\"'`]+", re.IGNORECASE)
 IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
-EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+# Lengths are bounded (RFC limits: 64 for the local part, 255 for the domain). Unbounded "+"
+# made this pattern quadratic on hostile input such as 200 KB of "a.a.a.a." (31 seconds).
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}\b")
 
 # Punctuation that often clings to the end of a URL in prose: "see http://x.com/a)."
 _TRAILING_PUNCTUATION = ".,;:!?)]}"

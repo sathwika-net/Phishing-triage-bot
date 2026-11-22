@@ -1,0 +1,7 @@
+[server]
+# Reject uploads over 10 MB at the server, before the file is read into memory.
+# This matches MAX_EMAIL_BYTES in triage/parser.py.
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false
