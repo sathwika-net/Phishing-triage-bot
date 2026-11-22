@@ -6,11 +6,13 @@ points. Scoring lives in the scorer so the rules stay transparent and configurab
 This module never contacts the internet and never calls an LLM.
 """
 
+import ipaddress
 import re
 import sys
+from urllib.parse import urlparse
 
 from triage.auth import NOT_FOUND, AuthResults, parse_authentication_results
-from triage.extractors import EMAIL_PATTERN
+from triage.extractors import EMAIL_PATTERN, IOCs, defang, extract_iocs, get_hostname
 from triage.models import Finding, ParsedEmail
 
 # ---------------------------------------------------------------------------
@@ -23,8 +25,8 @@ BRAND_DOMAINS: dict[str, set[str]] = {
     "paypal": {"paypal.com"},
     "microsoft": {"microsoft.com", "microsoftonline.com", "office.com", "office365.com", "outlook.com", "live.com"},
     "apple": {"apple.com", "icloud.com"},
-    "amazon": {"amazon.com", "amazon.ca", "amazon.co.uk"},
-    "google": {"google.com", "gmail.com", "youtube.com"},
+    "amazon": {"amazon.com", "amazon.ca", "amazon.co.uk", "amazonaws.com"},
+    "google": {"google.com", "gmail.com", "youtube.com", "googleusercontent.com", "googleapis.com", "gstatic.com"},
     "docusign": {"docusign.com", "docusign.net"},
     "dhl": {"dhl.com"},
     "fedex": {"fedex.com"},
@@ -35,6 +37,30 @@ BRAND_DOMAINS: dict[str, set[str]] = {
 
 # Attackers swap look-alike characters: paypa1.com instead of paypal.com
 _LOOKALIKE_CHARS = str.maketrans({"1": "l", "0": "o", "3": "e", "5": "s", "4": "a"})
+
+# URL shorteners hide the real destination of a link.
+SHORTENER_DOMAINS: set[str] = {
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly",
+    "rebrand.ly", "cutt.ly", "tiny.cc", "shorturl.at", "rb.gy",
+}
+
+# Top-level domains that are cheap or free and often abused. This is a heuristic, not proof:
+# plenty of legitimate sites use them.
+SUSPICIOUS_TLDS: set[str] = {
+    "zip", "mov", "top", "xyz", "click", "tk", "ml", "ga", "cf", "gq",
+    "work", "country", "stream", "gdn", "loan", "icu", "buzz",
+}
+
+# Link text ending like a file name ("report.pdf") is a file, not a web address.
+_FILE_EXTENSIONS: set[str] = {
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "png", "jpg", "jpeg", "gif", "csv", "html", "htm",
+}
+
+# Link text that is itself a web address: "http://bank.example/login", "www.bank.example", "bank.example"
+_LINK_TEXT_URL = re.compile(
+    r"(?:https?://)?(?:www\.)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?::\d+)?(?:/\S*)?",
+    re.IGNORECASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +211,132 @@ def check_authentication(auth: AuthResults) -> list[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------------------
+# URL checks
+# ---------------------------------------------------------------------------
+
+def _looks_like_ip(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return False
+
+
+def _has_embedded_credentials(url: str) -> bool:
+    """True for http://trusted.com@evil.example/ where everything before @ is a decoy."""
+    try:
+        return "@" in urlparse(url).netloc
+    except ValueError:
+        return False
+
+
+def _summarize(items: list[str], limit: int = 3) -> str:
+    """Show the first few examples and say how many more there were."""
+    shown = "; ".join(items[:limit])
+    extra = len(items) - limit
+    return f"{shown} (+{extra} more)" if extra > 0 else shown
+
+
+def check_urls(email: ParsedEmail, iocs: IOCs) -> list[Finding]:
+    """Look for tricks in the links of an email. We only read link text. We never visit a link.
+
+    Each rule produces at most ONE finding, listing a few examples, so an email
+    stuffed with 50 shortened links is reported once, not 50 times.
+    URLs in evidence are defanged so they cannot be clicked by accident.
+    """
+    shorteners: list[str] = []
+    ip_links: list[str] = []
+    odd_tlds: list[str] = []
+    credentials: list[str] = []
+    punycode: list[str] = []
+    lookalikes: list[str] = []
+
+    for url in iocs.urls:
+        host = get_hostname(url)
+        if not host:
+            continue
+        safe_url = defang(url)
+
+        if any(_same_org(host, shortener) for shortener in SHORTENER_DOMAINS):
+            shorteners.append(safe_url)
+        if _has_embedded_credentials(url):
+            credentials.append(safe_url)
+        if _looks_like_ip(host):
+            ip_links.append(safe_url)
+            continue  # the remaining checks are about domain names, not IPs
+
+        if host.rsplit(".", 1)[-1] in SUSPICIOUS_TLDS:
+            odd_tlds.append(safe_url)
+        if any(label.startswith("xn--") for label in host.split(".")):
+            punycode.append(safe_url)
+        for brand in BRAND_DOMAINS:
+            if _is_legitimate_for(brand, host):
+                continue
+            if _domain_mentions_brand(host, brand):
+                lookalikes.append(safe_url)
+                break
+
+    # Link text that shows one address while the link goes somewhere else.
+    mismatches: list[str] = []
+    for link in iocs.html_links:
+        text = link.text.strip()
+        target_host = get_hostname(link.href)
+        match = _LINK_TEXT_URL.fullmatch(text)
+        if not match or not target_host:
+            continue
+        shown_domain = match.group(1).lower()
+        if shown_domain.rsplit(".", 1)[-1] in _FILE_EXTENSIONS:
+            continue
+        if not _same_org(shown_domain, target_host):
+            mismatches.append(f"shows '{defang(text[:80])}' but goes to {defang(link.href)}")
+
+    findings: list[Finding] = []
+    if shorteners:
+        findings.append(Finding(
+            "URL_SHORTENER", "url",
+            "A link uses a URL shortener, which hides its real destination.",
+            _summarize(shorteners),
+        ))
+    if ip_links:
+        findings.append(Finding(
+            "URL_IP_ADDRESS", "url",
+            "A link points to a raw IP address instead of a domain name.",
+            _summarize(ip_links),
+        ))
+    if mismatches:
+        findings.append(Finding(
+            "URL_TEXT_MISMATCH", "url",
+            "The visible link text shows one address but the link goes to a different site.",
+            _summarize(mismatches),
+        ))
+    if odd_tlds:
+        findings.append(Finding(
+            "URL_SUSPICIOUS_TLD", "url",
+            "A link uses a top-level domain that is frequently abused for throwaway phishing sites.",
+            _summarize(odd_tlds),
+        ))
+    if credentials:
+        findings.append(Finding(
+            "URL_EMBEDDED_CREDENTIALS", "url",
+            "A link has a 'name@' section before the real host, a trick that makes it look like a trusted site.",
+            _summarize(credentials),
+        ))
+    if punycode:
+        findings.append(Finding(
+            "URL_PUNYCODE", "url",
+            "A link domain uses punycode (xn--), which can disguise look-alike characters.",
+            _summarize(punycode),
+        ))
+    if lookalikes:
+        findings.append(Finding(
+            "URL_LOOKALIKE_DOMAIN", "url",
+            "A link domain imitates a well-known brand without being one of its real domains.",
+            _summarize(lookalikes),
+        ))
+    return findings
+
+
 if __name__ == "__main__":
     # Quick manual check:  python -m triage.detectors samples\quick_test.eml
     from triage.parser import parse_eml_file
@@ -193,7 +345,11 @@ if __name__ == "__main__":
         print("Usage: python -m triage.detectors <path-to-.eml>")
         raise SystemExit(1)
     parsed = parse_eml_file(sys.argv[1])
-    all_findings = check_sender(parsed) + check_authentication(parse_authentication_results(parsed.headers))
+    all_findings = (
+        check_sender(parsed)
+        + check_authentication(parse_authentication_results(parsed.headers))
+        + check_urls(parsed, extract_iocs(parsed))
+    )
     print(f"{len(all_findings)} finding(s)")
     for finding in all_findings:
         print(f"[{finding.category}] {finding.rule_id}")

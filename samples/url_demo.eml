@@ -1,0 +1,13 @@
+From: "Delivery Notice" <notice@parcel-track.example>
+To: victim@example.com
+Subject: Package on hold
+Date: Mon, 16 Nov 2026 09:15:00 -0700
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Your package is on hold. Confirm here:
+<a href="http://203.0.113.5/confirm">http://tracking.parcel-track.example/confirm</a></p>
+<p>Or use <a href="http://bit.ly/3xYz12">this link</a> to reschedule.</p>
+<p>Bonus: <a href="http://free-gift.xyz/claim">Claim reward</a></p>
+</body></html>
