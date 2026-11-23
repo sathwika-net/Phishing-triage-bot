@@ -11,11 +11,13 @@ Safety rules this file follows:
 - Nothing in the email is opened, fetched or executed.
 """
 
+import hashlib
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+from triage.explainer import explain, is_local_url, load_settings, template_explanation
 from triage.extractors import defang
 from triage.parser import MAX_EMAIL_BYTES, EmailParseError
 from triage.pipeline import analyze_bytes
@@ -158,11 +160,50 @@ def show_attachments(analysis):
     st.dataframe(frame, hide_index=True)
 
 
+def show_explanation(analysis, settings, cache_key):
+    st.subheader("Rule-based summary")
+    st.caption("Built from fixed text. Always available, no AI involved.")
+    st.text(template_explanation(analysis.assessment))
+
+    st.subheader("AI-written explanation")
+    if not settings.enabled:
+        st.info("Off. Tick 'Use a local AI model' in the sidebar to enable it.")
+        return
+    st.caption(
+        "Written by a language model from the findings only, never the message body. "
+        "It can be wrong, and it never changes the score."
+    )
+    store = st.session_state.setdefault("ai_results", {})
+    if st.button("Generate AI explanation"):
+        with st.spinner("Asking the local model..."):
+            store[cache_key] = explain(analysis.email, analysis.detection, analysis.assessment, settings)
+    result = store.get(cache_key)
+    if result is None:
+        st.text("Click the button to generate it.")
+        return
+    if result.note:
+        st.warning(result.note)
+    if result.source != "template":
+        st.text(result.text)
+
+
 def main():
     st.title("🛡️ Phishing Email Triage Bot")
     st.caption("A triage aid, not proof. Upload a suspicious .eml file to see a rule-based risk score and the evidence behind it.")
     st.sidebar.header("Input")
     st.sidebar.info("Use synthetic or authorized emails only. The file is analyzed in memory and not stored. Links and attachments are never opened.")
+
+    st.sidebar.header("AI explanation (optional)")
+    settings = load_settings()
+    settings.enabled = st.sidebar.checkbox(
+        "Use a local AI model to write the explanation",
+        value=False,
+        help="Off by default. Needs a local model such as Ollama. Only the findings are sent, never the message body.",
+    )
+    if settings.enabled:
+        st.sidebar.caption(f"Model: {settings.model} at {settings.base_url}")
+        if not is_local_url(settings.base_url) and not settings.allow_remote:
+            st.sidebar.warning("This address is not on this computer, so nothing will be sent.")
 
     raw, label = load_input()
     if raw is None:
@@ -172,21 +213,15 @@ def main():
     try:
         analysis = analyze_bytes(raw)
     except EmailParseError as error:
-
-        analysis = analyze_bytes(raw)
-    except EmailParseError as error:
         st.error("Could not analyze this file.")
         st.code(str(error), language=None)  # st.code, not st.error, so any text is shown literally
         return
     except Exception:  # last-resort guard so a hostile file never shows a stack trace
         st.error("Unexpected error while analyzing this file. It may be malformed.")
         return
-    except Exception:  # last-resort guard so a hostile file never shows a stack trace
-        st.error("Unexpected error while analyzing this file. It may be malformed.")
-        return
 
     st.success(f"Analyzed: {label}")
-    tabs = st.tabs(["Summary", "Evidence", "IOCs", "Authentication", "Attachments", "Report"])
+    tabs = st.tabs(["Summary", "Evidence", "IOCs", "Authentication", "Attachments", "Explanation", "Report"])
     with tabs[0]:
         show_summary(analysis)
     with tabs[1]:
@@ -198,6 +233,8 @@ def main():
     with tabs[4]:
         show_attachments(analysis)
     with tabs[5]:
+        show_explanation(analysis, settings, hashlib.sha256(raw).hexdigest() + settings.model)
+    with tabs[6]:
         st.write("Download a PDF investigation report for this email.")
         pdf = build_report(analysis.email, analysis.detection, analysis.assessment)
         st.download_button("Download PDF report", data=pdf, file_name="phishing_triage_report.pdf", mime="application/pdf")
