@@ -88,7 +88,7 @@ scripts/
   generate_samples.py   builds the synthetic dataset
   fix_bidi.py           replaces hidden direction characters in source files
 samples/                synthetic example emails
-tests/                  pytest suite (142 tests)
+tests/                  pytest suite (164 tests)
 .streamlit/config.toml  10 MB upload limit, usage statistics off
 ```
 
@@ -149,7 +149,7 @@ This was a self-review with automated scanning, not a formal audit.
 - [x] Parser, IOC extraction, detectors, scoring, evaluation
 - [x] Streamlit dashboard and PDF report
 - [x] Security review and hostile-input tests
-- [ ] Optional LLM explanation layer (off by default; no email content sent externally unless enabled)
+- [x] Optional local-LLM explanation layer (off by default, local model only)
 - [ ] Payment-change and BEC language rules
 - [ ] Larger evaluation set, including authorized real-world samples
 - [ ] Public Suffix List for accurate domain matching
