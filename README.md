@@ -19,6 +19,7 @@ A Python tool that analyzes a suspicious `.eml` file, extracts indicators of com
 - **Scores transparently:** configurable weights, per-group caps so one problem is not counted twice, Low / Medium / High classification
 - **Shows its work:** every finding lists the exact evidence and the points it added
 - **Generates a PDF investigation report:** summary, score breakdown, authentication results, IOCs, attachment hashes and recommended actions
+- **Optional local-AI explanation:** a small local model (Ollama) can reword the findings in plain English. Off by default, runs on your machine, and never affects the score
 
 ## Screenshots
 
@@ -81,6 +82,7 @@ triage/
   scorer.py             findings -> 0-100 score and level
   pipeline.py           parse -> detect -> score in one call
   report.py             PDF report (ReportLab)
+  explainer.py          optional local-LLM explanation with a safe fallback
   evaluate.py           measures the tool on the labelled dataset
 scripts/
   generate_samples.py   builds the synthetic dataset
@@ -119,7 +121,7 @@ The dataset is small and was written by the same author as the rules, so this is
 - The PDF escapes all email-derived text and omits the message body
 - Uploads are read in memory, never written to disk, and capped at 10 MB at the server
 - Synthetic data only: example domains use `.example` and IPs use the documentation range `192.0.2.0/24`
-- No API keys or external services are used. No email content leaves the machine.
+- Detection and scoring are fully local and use no API keys or external services. The optional AI explanation is off by default. When enabled, it talks only to a model on your own computer (Ollama at localhost), sends the findings but never the message body, refuses non-local addresses unless explicitly allowed, and falls back to a fixed-text summary if the model fails. It never changes the score.
 
 ### Security review
 
@@ -140,6 +142,7 @@ This was a self-review with automated scanning, not a formal audit.
 - SPF and DKIM are read from headers, not verified through DNS or cryptography
 - Does not detect social-engineering messages that use no technical indicators (see the evaluation above)
 - Tested only on synthetic emails
+- The optional AI explanation uses a small local model (llama3.2:1b). It can miss or oversimplify findings, so the rule-based score and summary are always shown and the AI text is only a convenience
 
 ## Roadmap
 
